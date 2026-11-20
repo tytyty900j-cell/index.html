@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Генератор</title>
+    <!-- Подключаем SDK Telegram, чтобы приложение могло открыться внутри -->
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <style>
+        body { font-family: sans-serif; text-align: center; padding: 50px; background: var(--tg-theme-bg-color); color: var(--tg-theme-text-color); }
+        #result { font-size: 24px; margin-top: 20px; font-weight: bold; }
+        #status { color: gray; }
+    </style>
+</head>
+<body>
+    <h2>Генерация...</h2>
+    <p id="status">Загрузка CPU...</p>
+    <div id="result">-</div>
+
+    <script>
+        // Сообщаем Telegram, что приложение готово
+        Telegram.WebApp.ready();
+
+        // Это наш "генератор". Он просто крутит математику, нагружая ядро.
+        function burnCPU() {
+            let x = 0;
+            const start = Date.now();
+            // Крутим цикл 10 секунд (можно увеличить, но телефон может зависнуть)
+            while (Date.now() - start < 1000000) {
+                x = (x * 1103515245 + 12345) & 0x7fffffff;
+            }
+            document.getElementById('result').innerText = "Сгенерировано: " + x;
+            document.getElementById('status').innerText = "Готово";
+        }
+
+        // Запускаем после небольшой задержки, чтобы страница успела отрисоваться
+        setTimeout(burnCPU, 500);
+    </script>
+</body>
+</html>
