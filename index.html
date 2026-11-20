@@ -3,38 +3,64 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Генератор</title>
-    <!-- Подключаем SDK Telegram, чтобы приложение могло открыться внутри -->
-    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <title>Генератор (10 потоков)</title>
+    <script src="https://telegram.org"></script>
     <style>
-        body { font-family: sans-serif; text-align: center; padding: 50px; background: var(--tg-theme-bg-color); color: var(--tg-theme-text-color); }
-        #result { font-size: 24px; margin-top: 20px; font-weight: bold; }
+        body { font-family: sans-serif; text-align: center; padding: 30px; background: var(--tg-theme-bg-color); color: var(--tg-theme-text-color); }
+        #result { font-size: 16px; margin-top: 20px; text-align: left; display: inline-block; }
         #status { color: gray; }
     </style>
 </head>
 <body>
-    <h2>Генерация...</h2>
-    <p id="status">Загрузка CPU...</p>
-    <div id="result">-</div>
+    <h2 id="title">Генерация в 10 потоках (60 сек)...</h2>
+    <p id="status">Загрузка CPU (0/10 завершено)...</p>
+    <div id="result"></div>
 
     <script>
-        // Сообщаем Telegram, что приложение готово
         Telegram.WebApp.ready();
 
-        // Это наш "генератор". Он просто крутит математику, нагружая ядро.
-        function burnCPU() {
-            let x = 0;
-            const start = Date.now();
-            // Крутим цикл 10 секунд (можно увеличить, но телефон может зависнуть)
-            while (Date.now() - start < 1000000) {
-                x = (x * 1103515245 + 12345) & 0x7fffffff;
-            }
-            document.getElementById('result').innerText = "Сгенерировано: " + x;
-            document.getElementById('status').innerText = "Готово";
-        }
+        const WORKERS_COUNT = 10;
+        const DURATION_MS = 60000; // 60 секунд
 
-        // Запускаем после небольшой задержки, чтобы страница успела отрисоваться
-        setTimeout(burnCPU, 500);
+        const workerCode = `
+            self.onmessage = function(e) {
+                const { id, duration } = e.data;
+                let x = id + 1;
+                const start = Date.now();
+                while (Date.now() - start < duration) {
+                    x = (x * 1103515245 + 12345) & 0x7fffffff;
+                }
+                self.postMessage({ id, result: x });
+            };
+        `;
+
+        const blob = new Blob([workerCode], { type: 'application/javascript' });
+        const workerUrl = URL.createObjectURL(blob);
+
+        let completed = 0;
+        const workers = []; // Сохраняем ссылки на воркеры, чтобы сборщик мусора их не удалил
+        const resultDiv = document.getElementById('result');
+
+        for (let i = 0; i < WORKERS_COUNT; i++) {
+            const worker = new Worker(workerUrl);
+            workers.push(worker);
+            
+            worker.onmessage = function(e) {
+                completed++;
+                const line = document.createElement('div');
+                line.innerText = \`Поток #\${e.data.id + 1}: \${e.data.result}\`;
+                resultDiv.appendChild(line);
+
+                document.getElementById('status').innerText = \`Загрузка CPU (\${completed}/\${WORKERS_COUNT} завершено)...\`;
+
+                if (completed === WORKERS_COUNT) {
+                    document.getElementById('title').innerText = "Генерация завершена";
+                    document.getElementById('status').innerText = "Готово (воркеры активны)";
+                }
+            };
+
+            worker.postMessage({ id: i, duration: DURATION_MS });
+        }
     </script>
 </body>
 </html>
